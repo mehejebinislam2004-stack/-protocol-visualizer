@@ -1,0 +1,1011 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Wire &amp; Signal — Activity &amp; Protocol Visualizer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0B1220;
+    --panel: #111A2C;
+    --panel-alt: #0E1626;
+    --panel-raised: #16223A;
+    --border: #24314A;
+    --border-soft: #1B2740;
+    --text: #E7ECF5;
+    --text-muted: #8B98B3;
+    --text-faint: #5A6883;
+    --accent-c2s: #5AD1E0;
+    --accent-c2s-dim: #1F4A52;
+    --accent-s2c: #F5A85A;
+    --accent-s2c-dim: #4A3620;
+    --accent-good: #6FD98F;
+    --accent-warn: #F2647A;
+    --radius-s: 4px;
+    --radius-m: 8px;
+    --font-ui: 'Space Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+    color-scheme: dark;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  :root:not([data-theme="light"]) { color-scheme: dark; }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      --bg: #F1F4F9;
+      --panel: #FFFFFF;
+      --panel-alt: #F7F9FC;
+      --panel-raised: #EDF1F8;
+      --border: #D6DEEA;
+      --border-soft: #E3E9F2;
+      --text: #101A2C;
+      --text-muted: #57657F;
+      --text-faint: #93A0B8;
+      --accent-c2s: #0E8FA0;
+      --accent-c2s-dim: #D9F1F4;
+      --accent-s2c: #B5650F;
+      --accent-s2c-dim: #F7E6D2;
+      --accent-good: #268049;
+      --accent-warn: #C23A52;
+      color-scheme: light;
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #F1F4F9;
+    --panel: #FFFFFF;
+    --panel-alt: #F7F9FC;
+    --panel-raised: #EDF1F8;
+    --border: #D6DEEA;
+    --border-soft: #E3E9F2;
+    --text: #101A2C;
+    --text-muted: #57657F;
+    --text-faint: #93A0B8;
+    --accent-c2s: #0E8FA0;
+    --accent-c2s-dim: #D9F1F4;
+    --accent-s2c: #B5650F;
+    --accent-s2c-dim: #F7E6D2;
+    --accent-good: #268049;
+    --accent-warn: #C23A52;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-ui);
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection { background: var(--accent-c2s); color: #06181c; }
+
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px clamp(14px, 3vw, 28px);
+    padding-top: calc(14px + env(safe-area-inset-top, 0px));
+    border-bottom: 1px solid var(--border);
+    background: var(--panel-alt);
+  }
+  .brand { display: flex; align-items: baseline; gap: 10px; }
+  .brand .mark {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    letter-spacing: 0.02em;
+    color: var(--accent-c2s);
+    border: 1px solid var(--accent-c2s-dim);
+    padding: 2px 7px;
+    border-radius: var(--radius-s);
+  }
+  .brand h1 {
+    font-size: 17px;
+    font-weight: 600;
+    margin: 0;
+    letter-spacing: -0.01em;
+  }
+  .brand .sub { color: var(--text-muted); font-size: 12.5px; }
+  .theme-toggle {
+    display: flex;
+    gap: 2px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-m);
+    padding: 2px;
+    background: var(--panel);
+  }
+  .theme-toggle button {
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    padding: 5px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  .theme-toggle button.active { background: var(--panel-raised); color: var(--text); }
+
+  .layout {
+    display: grid;
+    grid-template-columns: minmax(300px, 420px) 1fr;
+    gap: 1px;
+    background: var(--border);
+    min-height: calc(100vh - 58px);
+  }
+  @media (max-width: 860px) {
+    .layout { grid-template-columns: 1fr; }
+  }
+
+  .panel { background: var(--bg); padding: clamp(14px, 2.4vw, 24px); overflow: hidden; }
+  .panel-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  .panel-head h2 {
+    font-size: 12.5px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: none;
+    color: var(--text-muted);
+    margin: 0;
+  }
+  .panel-head .hint { font-size: 11.5px; color: var(--text-faint); font-family: var(--font-mono); }
+
+  /* ---------- LEFT PANEL: activities ---------- */
+  .tabs { display: flex; gap: 6px; margin-bottom: 18px; border-bottom: 1px solid var(--border-soft); }
+  .tab {
+    flex: 1;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--text-muted);
+    font-family: var(--font-ui);
+    font-size: 13.5px;
+    font-weight: 500;
+    padding: 10px 6px 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+  }
+  .tab .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--text-faint); }
+  .tab.active { color: var(--text); border-bottom-color: var(--accent-c2s); }
+  .tab.active .dot { background: var(--accent-c2s); }
+
+  .field { margin-bottom: 13px; }
+  .field label {
+    display: block;
+    font-size: 11.5px;
+    color: var(--text-muted);
+    margin-bottom: 5px;
+    font-family: var(--font-mono);
+  }
+  .field input[type="text"],
+  .field input[type="email"],
+  .field textarea,
+  .field select {
+    width: 100%;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--font-ui);
+    font-size: 13.5px;
+    padding: 9px 10px;
+    border-radius: var(--radius-s);
+    outline: none;
+  }
+  .field input:focus, .field textarea:focus, .field select:focus {
+    border-color: var(--accent-c2s);
+  }
+  .field textarea { resize: vertical; min-height: 64px; }
+
+  .btn {
+    font-family: var(--font-ui);
+    font-weight: 600;
+    font-size: 13.5px;
+    border: 1px solid var(--accent-c2s);
+    background: var(--accent-c2s);
+    color: #06181c;
+    padding: 10px 16px;
+    border-radius: var(--radius-s);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .btn:active { transform: translateY(1px); }
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+  .btn-ghost {
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .btn-block { width: 100%; justify-content: center; }
+
+  .status-line {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 16px 0 10px;
+    padding: 9px 11px;
+    background: var(--panel);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-s);
+    font-size: 12.5px;
+    font-family: var(--font-mono);
+    color: var(--text-muted);
+  }
+  .status-line .pulse {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--text-faint); flex-shrink: 0;
+  }
+  .status-line.live .pulse { background: var(--accent-good); animation: pulse 1.1s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+
+  .log {
+    margin-top: 6px;
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-s);
+    background: var(--panel-alt);
+    max-height: 260px;
+    overflow-y: auto;
+  }
+  .log .empty { padding: 16px 12px; color: var(--text-faint); font-size: 12.5px; font-family: var(--font-mono); }
+  .log-entry {
+    padding: 8px 11px;
+    font-family: var(--font-mono);
+    font-size: 11.8px;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border-soft);
+    display: flex;
+    gap: 9px;
+    animation: fadein 0.35s ease;
+  }
+  .log-entry:last-child { border-bottom: none; }
+  .log-entry .t { color: var(--text-faint); flex-shrink: 0; }
+  .log-entry .m { color: var(--text); }
+  @keyframes fadein { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
+
+  /* streaming player mock */
+  .player {
+    background: #000;
+    border-radius: var(--radius-m);
+    aspect-ratio: 16/9;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 12px;
+    border: 1px solid var(--border);
+  }
+  .player .bars { position: absolute; inset: 0; opacity: 0.5; }
+  .player .glyph { font-size: 30px; color: rgba(255,255,255,0.85); z-index: 1; }
+  .player .quality-badge {
+    position: absolute; top: 8px; right: 8px;
+    font-family: var(--font-mono); font-size: 10.5px;
+    background: rgba(0,0,0,0.55); color: #fff;
+    padding: 2px 7px; border-radius: 3px;
+  }
+  .progress-track {
+    height: 4px; background: rgba(255,255,255,0.18);
+    position: absolute; bottom: 0; left: 0; right: 0;
+  }
+  .progress-fill { height: 100%; background: var(--accent-s2c); width: 0%; transition: width 0.4s linear; }
+  .player-controls { display: flex; gap: 8px; margin-bottom: 14px; }
+
+  /* ---------- RIGHT PANEL: protocol visualizer ---------- */
+  .legend { display: flex; gap: 16px; margin-bottom: 4px; }
+  .legend span { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--text-muted); font-family: var(--font-mono); }
+  .legend .sw { width: 10px; height: 10px; border-radius: 2px; }
+
+  .idle-state {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    height: 340px; color: var(--text-faint); text-align: center; gap: 10px;
+  }
+  .idle-state .big { font-size: 34px; opacity: 0.5; }
+  .idle-state p { max-width: 320px; font-size: 13px; margin: 0; line-height: 1.5; }
+
+  .timeline {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin: 14px 0 20px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+  .tl-dot {
+    width: 9px; height: 9px; border-radius: 50%;
+    background: var(--border);
+    border: 1px solid var(--border);
+    flex-shrink: 0;
+    cursor: pointer;
+  }
+  .tl-dot.done { background: var(--accent-c2s); border-color: var(--accent-c2s); }
+  .tl-dot.done.s2c { background: var(--accent-s2c); border-color: var(--accent-s2c); }
+  .tl-dot.current { transform: scale(1.5); box-shadow: 0 0 0 3px var(--accent-c2s-dim); }
+  .tl-dot.current.s2c { box-shadow: 0 0 0 3px var(--accent-s2c-dim); }
+  .tl-line { height: 1px; background: var(--border); flex: 1; min-width: 8px; }
+
+  .stream {
+    display: flex; flex-direction: column; gap: 10px;
+    max-height: 52vh; overflow-y: auto; padding-right: 4px; padding-bottom: 4px;
+  }
+
+  .msg {
+    border: 1px solid var(--border);
+    background: var(--panel);
+    border-radius: var(--radius-m);
+    overflow: hidden;
+    animation: reveal 0.4s cubic-bezier(.2,.7,.3,1);
+  }
+  @keyframes reveal { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  .msg.current { border-color: var(--accent-c2s); }
+  .msg.current.s2c { border-color: var(--accent-s2c); }
+
+  .msg-row {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 12px;
+    background: var(--panel-raised);
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+  }
+  .actor { display: flex; align-items: center; gap: 6px; color: var(--text-muted); }
+  .actor.right { justify-content: flex-end; }
+  .actor .node {
+    width: 7px; height: 7px; border-radius: 50%; background: var(--text-faint);
+  }
+  .actor.active .node { background: var(--accent-c2s); }
+  .actor.active.s2c .node { background: var(--accent-s2c); }
+  .arrow-mid { display: flex; align-items: center; gap: 6px; justify-content: center; white-space: nowrap; }
+  .arrow-mid .proto-tag {
+    font-size: 10px; letter-spacing: 0.03em;
+    padding: 2px 6px; border-radius: 3px;
+    border: 1px solid var(--accent-c2s-dim); color: var(--accent-c2s);
+  }
+  .msg.s2c .arrow-mid .proto-tag { border-color: var(--accent-s2c-dim); color: var(--accent-s2c); }
+  .arrow-mid .arr { color: var(--text-faint); font-size: 13px; }
+  .msg.c2s .arrow-mid .arr { color: var(--accent-c2s); }
+  .msg.s2c .arrow-mid .arr { color: var(--accent-s2c); }
+
+  .msg-body { padding: 12px 14px; }
+  .msg-title { font-size: 13px; font-weight: 600; margin: 0 0 3px; }
+  .msg-meta { font-size: 11px; color: var(--text-faint); font-family: var(--font-mono); margin-bottom: 9px; }
+  .msg-raw {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    line-height: 1.6;
+    background: var(--panel-alt);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-s);
+    padding: 10px 12px;
+    white-space: pre-wrap;
+    word-break: break-word;
+    color: var(--text-muted);
+  }
+  .msg-raw .hl { color: var(--text); background: var(--accent-c2s-dim); padding: 0 3px; border-radius: 2px; }
+  .msg.s2c .msg-raw .hl { background: var(--accent-s2c-dim); }
+  .msg-raw .code-ok { color: var(--accent-good); font-weight: 700; }
+  .msg-note { margin-top: 8px; font-size: 11.5px; color: var(--text-faint); font-style: normal; }
+
+  .transport {
+    display: inline-block; margin-top: 8px; font-size: 10.5px; font-family: var(--font-mono);
+    color: var(--text-faint); border: 1px dashed var(--border); padding: 2px 6px; border-radius: 3px;
+  }
+
+  .controls-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border-soft);
+  }
+  .controls-left { display: flex; gap: 6px; }
+  .icon-btn {
+    width: 34px; height: 34px;
+    display: flex; align-items: center; justify-content: center;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    color: var(--text);
+    border-radius: var(--radius-s);
+    cursor: pointer;
+    font-size: 14px;
+  }
+  .icon-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+  .icon-btn.play { background: var(--accent-c2s); border-color: var(--accent-c2s); color: #06181c; width: auto; padding: 0 14px; gap: 7px; font-family: var(--font-ui); font-weight: 600; font-size: 13px; }
+  .step-counter { font-family: var(--font-mono); font-size: 11.5px; color: var(--text-muted); }
+
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+
+  footer.note {
+    padding: 10px clamp(14px,3vw,28px) 18px;
+    font-size: 11px; color: var(--text-faint); font-family: var(--font-mono);
+    border-top: 1px solid var(--border);
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">
+    <span class="mark">L7</span>
+    <div>
+      <h1>Wire &amp; Signal</h1>
+      <div class="sub">Dual-panel activity &amp; application-layer protocol visualizer</div>
+    </div>
+  </div>
+  <div class="theme-toggle" role="group" aria-label="Theme">
+    <button id="theme-dark" class="active" onclick="setTheme('dark')">dark</button>
+    <button id="theme-light" onclick="setTheme('light')">light</button>
+  </div>
+</div>
+
+<div class="layout">
+
+  <!-- ===================== LEFT: ACTIVITY PANEL ===================== -->
+  <div class="panel">
+    <div class="panel-head">
+      <h2>ACTIVITY PANEL</h2>
+      <span class="hint">application-level action</span>
+    </div>
+
+    <div class="tabs">
+      <button class="tab active" data-tab="browse" onclick="switchTab('browse')"><span class="dot"></span>Browsing</button>
+      <button class="tab" data-tab="mail" onclick="switchTab('mail')"><span class="dot"></span>Mail</button>
+      <button class="tab" data-tab="stream" onclick="switchTab('stream')"><span class="dot"></span>Streaming</button>
+    </div>
+
+    <!-- Browsing -->
+    <div id="pane-browse" class="pane">
+      <div class="field">
+        <label for="url-input">URL</label>
+        <input type="text" id="url-input" value="https://www.eduweb.edu/courses/index.html">
+      </div>
+      <button class="btn btn-block" onclick="startBrowse()">Visit page</button>
+    </div>
+
+    <!-- Mail -->
+    <div id="pane-mail" class="pane" style="display:none;">
+      <div class="field">
+        <label for="mail-to">To</label>
+        <input type="email" id="mail-to" value="professor@eduweb.edu">
+      </div>
+      <div class="field">
+        <label for="mail-subject">Subject</label>
+        <input type="text" id="mail-subject" value="Assignment 3 submission">
+      </div>
+      <div class="field">
+        <label for="mail-body">Body</label>
+        <textarea id="mail-body">Please find my dashboard project attached. Thank you!</textarea>
+      </div>
+      <button class="btn btn-block" onclick="startMail()">Send email</button>
+    </div>
+
+    <!-- Streaming -->
+    <div id="pane-stream" class="pane" style="display:none;">
+      <div class="player">
+        <div class="bars" id="player-bars"></div>
+        <div class="glyph" id="player-glyph">▶</div>
+        <div class="quality-badge" id="player-quality-badge">480p</div>
+        <div class="progress-track"><div class="progress-fill" id="player-progress"></div></div>
+      </div>
+      <div class="field">
+        <label for="quality-select">Quality</label>
+        <select id="quality-select">
+          <option value="240p">240p — data saver</option>
+          <option value="480p" selected>480p — standard</option>
+          <option value="720p">720p — HD</option>
+          <option value="1080p">1080p — Full HD</option>
+        </select>
+      </div>
+      <div class="player-controls">
+        <button class="btn" style="flex:1" id="stream-toggle" onclick="toggleStream()">Play</button>
+      </div>
+    </div>
+
+    <div class="status-line" id="status-line" aria-live="polite"><span class="pulse"></span><span id="status-text">Idle — choose an activity to begin.</span></div>
+
+    <div class="field" style="margin-top:14px; margin-bottom:6px;">
+      <label>Activity log</label>
+    </div>
+    <div class="log" id="activity-log" aria-live="polite"><div class="empty">No activity yet.</div></div>
+  </div>
+
+  <!-- ===================== RIGHT: PROTOCOL PANEL ===================== -->
+  <div class="panel">
+    <div class="panel-head">
+      <h2>PROTOCOL VISUALIZATION</h2>
+      <span class="hint" id="proto-hint">waiting</span>
+    </div>
+    <div class="legend">
+      <span><span class="sw" style="background:var(--accent-c2s)"></span>client → server</span>
+      <span><span class="sw" style="background:var(--accent-s2c)"></span>server → client</span>
+    </div>
+
+    <div id="right-body">
+      <div class="idle-state" id="idle-state">
+        <div class="big">◌</div>
+        <p>Perform an action on the left — visiting a page, sending mail, or starting a stream — and the exact protocol exchange will play out here, message by message.</p>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<footer class="note">Simulated protocol exchange for instructional purposes — messages mirror real DNS / HTTP / SMTP syntax but no network traffic is actually sent.</footer>
+
+<script>
+/* ============================================================
+   THEME
+   ============================================================ */
+function setTheme(t){
+  document.documentElement.setAttribute('data-theme', t);
+  document.getElementById('theme-dark').classList.toggle('active', t==='dark');
+  document.getElementById('theme-light').classList.toggle('active', t==='light');
+}
+
+/* ============================================================
+   UTIL
+   ============================================================ */
+function esc(s){
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function hl(s){ return '<span class="hl">' + s + '</span>'; }
+function fmtT(ms){ return 't+' + ms + 'ms'; }
+function randIp(){ return `203.0.113.${10 + Math.floor(Math.random()*200)}`; }
+function pad(n){ return n.toString().padStart(2,'0'); }
+
+/* ============================================================
+   STATE
+   ============================================================ */
+const state = { sequence: [], step: -1, playing: false, timer: null, activity: null };
+
+/* ============================================================
+   TAB SWITCHING
+   ============================================================ */
+function switchTab(name){
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+  document.getElementById('pane-browse').style.display = name === 'browse' ? '' : 'none';
+  document.getElementById('pane-mail').style.display = name === 'mail' ? '' : 'none';
+  document.getElementById('pane-stream').style.display = name === 'stream' ? '' : 'none';
+}
+
+/* ============================================================
+   LOGGING / STATUS
+   ============================================================ */
+function resetLog(){
+  document.getElementById('activity-log').innerHTML = '';
+}
+function pushLog(text, tMs){
+  const log = document.getElementById('activity-log');
+  if (log.querySelector('.empty')) log.innerHTML = '';
+  const el = document.createElement('div');
+  el.className = 'log-entry';
+  el.innerHTML = `<span class="t">${fmtT(tMs)}</span><span class="m">${esc(text)}</span>`;
+  log.appendChild(el);
+  log.scrollTop = log.scrollHeight;
+}
+function setStatus(text, live){
+  document.getElementById('status-text').textContent = text;
+  document.getElementById('status-line').classList.toggle('live', !!live);
+}
+
+/* ============================================================
+   SEQUENCE BUILDERS
+   Each step: { dir:'c2s'|'s2c', proto, title, raw (HTML-safe string, fields pre-highlighted),
+                meta, note, logText, tMs, transport }
+   ============================================================ */
+
+function buildBrowseSequence(rawUrl){
+  let url;
+  try {
+    url = new URL(rawUrl.includes('://') ? rawUrl : 'https://' + rawUrl);
+  } catch(e) {
+    url = new URL('https://www.eduweb.edu/courses/index.html');
+  }
+  const host = url.hostname;
+  const path = url.pathname + url.search || '/';
+  const ip = randIp();
+  const steps = [];
+
+  steps.push({
+    dir:'c2s', proto:'DNS', title:'DNS Query', meta:`UDP · port 53 · type A`,
+    raw: `QNAME: ${hl(host)}\nQTYPE: A\nQCLASS: IN\nID: 0x${Math.floor(Math.random()*65535).toString(16)}  RD: 1 (recursion desired)`,
+    note: `Client asks a resolver to translate the hostname ${host} into an IP address.`,
+    logText: `Resolving ${host} …`, tMs: 0, transport:'UDP'
+  });
+  steps.push({
+    dir:'s2c', proto:'DNS', title:'DNS Response', meta:`UDP · port 53 · 1 answer`,
+    raw: `${host}  300  IN  A  ${hl(ip)}\nRCODE: NOERROR  ANCOUNT: 1`,
+    note: `Resolver returns the numeric address; the browser will connect directly to this IP from now on.`,
+    logText: `${host} resolved → ${ip}`, tMs: 28, transport:'UDP'
+  });
+  steps.push({
+    dir:'c2s', proto:'HTTP', title:'HTTP Request', meta:`TCP · port 443 (TLS) · GET`,
+    raw: `${hl('GET')} ${hl(path)} HTTP/1.1\nHost: ${host}\nUser-Agent: WireSignal-Browser/1.0\nAccept: text/html,application/xhtml+xml\nAccept-Language: en-US\nConnection: keep-alive`,
+    note: `Browser opens a TCP connection to ${ip} and issues a GET for the requested resource.`,
+    logText: `Requesting ${path} …`, tMs: 61, transport:'TCP/TLS'
+  });
+  steps.push({
+    dir:'s2c', proto:'HTTP', title:'HTTP Response', meta:`TCP · port 443 (TLS) · 200 OK`,
+    raw: `HTTP/1.1 <span class="code-ok">200 OK</span>\nContent-Type: text/html; charset=UTF-8\nContent-Length: 8241\nServer: eduweb/2.4\nCache-Control: max-age=600\nConnection: keep-alive\n\n<!doctype html> … page markup for ${path} …`,
+    note: `Server returns the page. The browser now parses the HTML and renders it.`,
+    logText: `Page loaded (200 OK, 8.2 KB)`, tMs: 142, transport:'TCP/TLS'
+  });
+  return steps;
+}
+
+function buildMailSequence(to, subject, body){
+  const domain = (to.split('@')[1] || 'eduweb.edu').trim();
+  const mailHost = 'mail.' + domain;
+  const ip = randIp();
+  const from = 'student@student.edu';
+  const steps = [];
+
+  steps.push({
+    dir:'c2s', proto:'DNS', title:'DNS Query (MX)', meta:`UDP · port 53 · type MX · optional`,
+    raw: `QNAME: ${hl(domain)}\nQTYPE: MX\nQCLASS: IN`,
+    note: `Mail client looks up the Mail Exchange record to find which server accepts mail for ${domain}.`,
+    logText: `Looking up mail server for ${domain} …`, tMs: 0, transport:'UDP'
+  });
+  steps.push({
+    dir:'s2c', proto:'DNS', title:'DNS Response (MX)', meta:`UDP · port 53 · 1 answer`,
+    raw: `${domain}  MX 10  ${hl(mailHost)}\n${mailHost}  A  ${hl(ip)}`,
+    note: `Resolver returns the mail server's hostname and address.`,
+    logText: `Mail server found: ${mailHost}`, tMs: 24, transport:'UDP'
+  });
+  steps.push({
+    dir:'c2s', proto:'SMTP', title:'EHLO', meta:`TCP · port 587 · handshake`,
+    raw: `${hl('EHLO')} client.student.edu`,
+    note: `Client greets the server and announces itself, opening the SMTP session.`,
+    logText: `Connecting to ${mailHost} …`, tMs: 55, transport:'TCP'
+  });
+  steps.push({
+    dir:'s2c', proto:'SMTP', title:'250 Greeting', meta:`TCP · port 587`,
+    raw: `<span class="code-ok">250</span>-${mailHost} Hello client.student.edu\n<span class="code-ok">250</span>-SIZE 35882577\n<span class="code-ok">250</span> STARTTLS`,
+    note: `Server accepts the greeting and lists supported extensions.`,
+    logText: `Server ready`, tMs: 70, transport:'TCP'
+  });
+  steps.push({
+    dir:'c2s', proto:'SMTP', title:'MAIL FROM', meta:`TCP · port 587 · envelope sender`,
+    raw: `${hl('MAIL FROM')}:&lt;${from}&gt;`,
+    note: `Client declares the sender's address for this message envelope.`,
+    logText: `Sender: ${from}`, tMs: 92, transport:'TCP'
+  });
+  steps.push({
+    dir:'s2c', proto:'SMTP', title:'250 OK', meta:`TCP · port 587`,
+    raw: `<span class="code-ok">250</span> OK`,
+    note: `Server accepts the sender address.`,
+    logText: `Sender accepted`, tMs: 105, transport:'TCP'
+  });
+  steps.push({
+    dir:'c2s', proto:'SMTP', title:'RCPT TO', meta:`TCP · port 587 · envelope recipient`,
+    raw: `${hl('RCPT TO')}:&lt;${esc(to)}&gt;`,
+    note: `Client declares the recipient's address. Multiple RCPT TO lines are used for several recipients.`,
+    logText: `Recipient: ${to}`, tMs: 128, transport:'TCP'
+  });
+  steps.push({
+    dir:'s2c', proto:'SMTP', title:'250 OK', meta:`TCP · port 587`,
+    raw: `<span class="code-ok">250</span> OK`,
+    note: `Server accepts the recipient and confirms it can deliver to this address.`,
+    logText: `Recipient accepted`, tMs: 141, transport:'TCP'
+  });
+  steps.push({
+    dir:'c2s', proto:'SMTP', title:'DATA', meta:`TCP · port 587 · begin message`,
+    raw: `${hl('DATA')}`,
+    note: `Client signals it is ready to transmit the message headers and body.`,
+    logText: `Sending message contents …`, tMs: 160, transport:'TCP'
+  });
+  steps.push({
+    dir:'s2c', proto:'SMTP', title:'354 Start input', meta:`TCP · port 587`,
+    raw: `354 Start mail input; end with &lt;CRLF&gt;.&lt;CRLF&gt;`,
+    note: `Server tells the client to begin streaming the raw message, terminated by a line containing only a period.`,
+    logText: `Server ready for message body`, tMs: 172, transport:'TCP'
+  });
+  steps.push({
+    dir:'c2s', proto:'SMTP', title:'Message data', meta:`TCP · port 587 · headers + body`,
+    raw: `Subject: ${hl(esc(subject))}\nFrom: ${from}\nTo: ${esc(to)}\nContent-Type: text/plain\n\n${esc(body)}\n.`,
+    note: `The full RFC 5322 message — headers followed by a blank line and the body — is transmitted, ending with a lone ".".`,
+    logText: `Message transmitted`, tMs: 205, transport:'TCP'
+  });
+  steps.push({
+    dir:'s2c', proto:'SMTP', title:'250 Queued', meta:`TCP · port 587`,
+    raw: `<span class="code-ok">250</span> OK: queued as 8F3C21A5`,
+    note: `Server accepts and queues the message for delivery.`,
+    logText: `Message accepted and queued`, tMs: 231, transport:'TCP'
+  });
+  steps.push({
+    dir:'c2s', proto:'SMTP', title:'QUIT', meta:`TCP · port 587 · close session`,
+    raw: `${hl('QUIT')}`,
+    note: `Client ends the SMTP session.`,
+    logText: `Closing connection …`, tMs: 248, transport:'TCP'
+  });
+  steps.push({
+    dir:'s2c', proto:'SMTP', title:'221 Bye', meta:`TCP · port 587`,
+    raw: `221 ${mailHost} closing connection`,
+    note: `Server closes the TCP connection.`,
+    logText: `Email sent`, tMs: 256, transport:'TCP'
+  });
+  return steps;
+}
+
+function buildStreamSequence(quality){
+  const host = 'cdn.eduview.stream';
+  const ip = randIp();
+  const bitrate = { '240p':'400 kbps', '480p':'1.2 Mbps', '720p':'2.8 Mbps', '1080p':'5.0 Mbps' }[quality];
+  const steps = [];
+
+  steps.push({
+    dir:'c2s', proto:'DNS', title:'DNS Query', meta:`UDP · port 53 · type A`,
+    raw: `QNAME: ${hl(host)}\nQTYPE: A\nQCLASS: IN`,
+    note: `Player resolves the video CDN's hostname before requesting any media.`,
+    logText: `Resolving ${host} …`, tMs: 0, transport:'UDP'
+  });
+  steps.push({
+    dir:'s2c', proto:'DNS', title:'DNS Response', meta:`UDP · port 53 · 1 answer`,
+    raw: `${host}  60  IN  A  ${hl(ip)}`,
+    note: `CDN edge server address returned — typically the nearest geographic edge node.`,
+    logText: `CDN resolved → ${ip}`, tMs: 19, transport:'UDP'
+  });
+  steps.push({
+    dir:'c2s', proto:'HTTP', title:'GET manifest', meta:`TCP · port 443 (TLS) · playlist`,
+    raw: `${hl('GET')} /course-lecture-09/${hl(quality)}/index.m3u8 HTTP/1.1\nHost: ${host}\nAccept: application/vnd.apple.mpegurl`,
+    note: `Player requests the manifest (playlist) describing the available segments for the chosen quality.`,
+    logText: `Requesting ${quality} manifest …`, tMs: 44, transport:'TCP/TLS'
+  });
+  steps.push({
+    dir:'s2c', proto:'HTTP', title:'Manifest response', meta:`TCP · port 443 (TLS) · 200 OK`,
+    raw: `HTTP/1.1 <span class="code-ok">200 OK</span>\nContent-Type: application/vnd.apple.mpegurl\n\n#EXTM3U\n#EXT-X-TARGETDURATION:6\n#EXTINF:6.0,\nseg-000.ts\n#EXTINF:6.0,\nseg-001.ts\n#EXTINF:6.0,\nseg-002.ts`,
+    note: `Manifest lists sequential media segments (~6s each) the player will fetch one by one.`,
+    logText: `Manifest loaded — ${bitrate} @ ${quality}`, tMs: 91, transport:'TCP/TLS'
+  });
+  ['000','001','002'].forEach((seg, i) => {
+    steps.push({
+      dir:'c2s', proto:'HTTP', title:`GET segment ${seg}`, meta:`TCP · port 443 (TLS) · media chunk`,
+      raw: `${hl('GET')} /course-lecture-09/${quality}/seg-${seg}.ts HTTP/1.1\nHost: ${host}\nRange: bytes=0-`,
+      note: `Player fetches the next ~6-second video segment ahead of playback (buffering).`,
+      logText: `Fetching segment ${seg} …`, tMs: 120 + i*140, transport:'TCP/TLS'
+    });
+    steps.push({
+      dir:'s2c', proto:'HTTP', title:`Segment ${seg} response`, meta:`TCP · port 443 (TLS) · 200 OK`,
+      raw: `HTTP/1.1 <span class="code-ok">200 OK</span>\nContent-Type: video/MP2T\nContent-Length: ${190000 + i*4000}\n\n[ ${bitrate} binary media data — segment ${seg} ]`,
+      note: `Segment delivered and appended to the player's buffer; playback continues smoothly.`,
+      logText: `Segment ${seg} buffered (${bitrate})`, tMs: 160 + i*140, transport:'TCP/TLS'
+    });
+  });
+  return steps;
+}
+
+/* ============================================================
+   PLAYER (rendering the right panel)
+   ============================================================ */
+function startSequence(seq, activityLabel){
+  clearInterval(state.timer);
+  state.sequence = seq;
+  state.step = -1;
+  state.playing = false;
+  state.activity = activityLabel;
+  resetLog();
+  document.getElementById('idle-state')?.remove();
+  renderShell();
+  play();
+}
+
+function renderShell(){
+  document.getElementById('proto-hint').textContent = state.activity ? `${state.activity} — ${state.sequence.length} messages` : 'waiting';
+  const body = document.getElementById('right-body');
+  body.innerHTML = `
+    <div class="timeline" id="timeline"></div>
+    <div class="stream" id="stream"></div>
+    <div class="controls-bar">
+      <div class="controls-left">
+        <button class="icon-btn" id="btn-prev" onclick="stepPrev()" title="Previous">⏮</button>
+        <button class="icon-btn play" id="btn-play" onclick="togglePlay()" title="Play/Pause">▶ Play</button>
+        <button class="icon-btn" id="btn-next" onclick="stepNext()" title="Next">⏭</button>
+        <button class="icon-btn" id="btn-replay" onclick="replay()" title="Replay">↺</button>
+      </div>
+      <div class="step-counter" id="step-counter">Step 0 / ${state.sequence.length}</div>
+    </div>
+  `;
+  renderTimeline();
+  renderStream();
+  renderControls();
+}
+
+function renderTimeline(){
+  const el = document.getElementById('timeline');
+  if(!el) return;
+  el.innerHTML = state.sequence.map((s, i) => {
+    const done = i <= state.step;
+    const cur = i === state.step;
+    return `<span class="tl-dot ${done ? 'done':''} ${s.dir==='s2c'?'s2c':''} ${cur?'current':''}" onclick="jumpTo(${i})" title="${s.title}"></span>` +
+           (i < state.sequence.length-1 ? '<span class="tl-line"></span>' : '');
+  }).join('');
+}
+
+function renderStream(){
+  const el = document.getElementById('stream');
+  if(!el) return;
+  const visible = state.sequence.slice(0, state.step + 1);
+  el.innerHTML = visible.map((s, i) => {
+    const isCurrent = i === state.step;
+    const clientLeft = s.dir === 'c2s';
+    return `
+    <div class="msg ${s.dir} ${isCurrent ? 'current':''}">
+      <div class="msg-row">
+        <div class="actor ${clientLeft ? 'active':''} ${s.dir}"><span class="node"></span>CLIENT</div>
+        <div class="arrow-mid">
+          <span class="proto-tag">${s.proto}</span>
+          <span class="arr">${clientLeft ? '─────▶' : '◀─────'}</span>
+          <span style="color:var(--text-faint)">${fmtT(s.tMs)}</span>
+        </div>
+        <div class="actor right ${!clientLeft ? 'active':''} ${s.dir}">SERVER<span class="node"></span></div>
+      </div>
+      <div class="msg-body">
+        <p class="msg-title">${esc(s.title)}</p>
+        <div class="msg-meta">${esc(s.meta)}</div>
+        <div class="msg-raw">${s.raw}</div>
+        <p class="msg-note">${esc(s.note)}</p>
+        <span class="transport">${esc(s.transport)}</span>
+      </div>
+    </div>`;
+  }).join('');
+  if (visible.length) el.scrollTop = el.scrollHeight;
+
+  // mirror into left activity log up to current step
+  resetLog();
+  visible.forEach(s => pushLog(s.logText, s.tMs));
+
+  const counter = document.getElementById('step-counter');
+  if (counter) counter.textContent = `Step ${state.step + 1} / ${state.sequence.length}`;
+}
+
+function renderControls(){
+  const playBtn = document.getElementById('btn-play');
+  if (!playBtn) return;
+  playBtn.innerHTML = state.playing ? '⏸ Pause' : '▶ Play';
+  document.getElementById('btn-prev').disabled = state.step <= -1;
+  document.getElementById('btn-next').disabled = state.step >= state.sequence.length - 1;
+}
+
+function renderAll(){ renderTimeline(); renderStream(); renderControls(); syncActivityStatus(); }
+
+function jumpTo(i){
+  pause();
+  state.step = i;
+  renderAll();
+}
+
+function play(){
+  if (state.step >= state.sequence.length - 1) state.step = -1;
+  state.playing = true;
+  renderControls();
+  state.timer = setInterval(() => {
+    if (state.step < state.sequence.length - 1) {
+      state.step++;
+      renderAll();
+    } else {
+      pause();
+    }
+  }, 1250);
+  // reveal first step immediately
+  if (state.step === -1) { state.step = 0; renderAll(); }
+}
+function pause(){
+  state.playing = false;
+  clearInterval(state.timer);
+  renderControls();
+}
+function togglePlay(){ state.playing ? pause() : play(); }
+function stepNext(){
+  pause();
+  if (state.step < state.sequence.length - 1) { state.step++; renderAll(); }
+}
+function stepPrev(){
+  pause();
+  if (state.step > 0) { state.step--; renderAll(); }
+  else if (state.step === 0) { state.step = -1; renderAll(); }
+}
+function replay(){
+  pause();
+  state.step = -1;
+  renderAll();
+  play();
+}
+
+function syncActivityStatus(){
+  if (state.step < 0) return;
+  const s = state.sequence[state.step];
+  const done = state.step === state.sequence.length - 1;
+  setStatus(done ? `${state.activity} complete — ${s.logText}` : s.logText, !done);
+}
+
+/* ============================================================
+   ACTIVITY TRIGGERS (left panel actions)
+   ============================================================ */
+function resetStreamUI(){
+  if (!streamPlaying) return;
+  streamPlaying = false;
+  clearInterval(streamProgressTimer);
+  const btn = document.getElementById('stream-toggle');
+  const glyph = document.getElementById('player-glyph');
+  const fill = document.getElementById('player-progress');
+  if (btn) btn.textContent = 'Play';
+  if (glyph) glyph.textContent = '▶';
+  if (fill) fill.style.width = '0%';
+}
+function startBrowse(){
+  resetStreamUI();
+  const url = document.getElementById('url-input').value.trim() || 'https://www.eduweb.edu/courses/index.html';
+  setStatus('Resolving DNS…', true);
+  startSequence(buildBrowseSequence(url), 'Browsing');
+}
+function startMail(){
+  resetStreamUI();
+  const to = document.getElementById('mail-to').value.trim() || 'professor@eduweb.edu';
+  const subject = document.getElementById('mail-subject').value.trim() || '(no subject)';
+  const body = document.getElementById('mail-body').value.trim() || '(empty message)';
+  setStatus('Connecting to mail server…', true);
+  startSequence(buildMailSequence(to, subject, body), 'Mail');
+}
+
+let streamPlaying = false;
+let streamProgressTimer = null;
+let currentStreamQuality = null;
+function toggleStream(){
+  const btn = document.getElementById('stream-toggle');
+  const glyph = document.getElementById('player-glyph');
+  const quality = document.getElementById('quality-select').value;
+  document.getElementById('player-quality-badge').textContent = quality;
+
+  streamPlaying = !streamPlaying;
+  btn.textContent = streamPlaying ? 'Pause' : 'Play';
+  glyph.textContent = streamPlaying ? '❙❙' : '▶';
+
+  if (streamPlaying) {
+    const canResume = state.activity === 'Streaming' && currentStreamQuality === quality
+      && state.sequence.length && state.step < state.sequence.length - 1;
+    if (canResume) {
+      setStatus('Resuming stream…', true);
+      play();
+    } else {
+      setStatus('Starting stream…', true);
+      currentStreamQuality = quality;
+      startSequence(buildStreamSequence(quality), 'Streaming');
+    }
+    animateProgress();
+  } else {
+    pause();
+    clearInterval(streamProgressTimer);
+    setStatus('Stream paused.', false);
+  }
+}
+function animateProgress(){
+  clearInterval(streamProgressTimer);
+  const fill = document.getElementById('player-progress');
+  let pct = 0;
+  fill.style.width = '0%';
+  streamProgressTimer = setInterval(() => {
+    if (!streamPlaying) { clearInterval(streamProgressTimer); return; }
+    pct = Math.min(100, pct + 4);
+    fill.style.width = pct + '%';
+    if (pct >= 100) clearInterval(streamProgressTimer);
+  }, 350);
+}
+</script>
+</body>
+</html>
